@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>郵便局コード番号検索</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .header-section {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+        .search-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .result-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s;
+        }
+        .result-card:hover {
+            transform: translateY(-2px);
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .btn-search {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 30px;
+        }
+        .btn-search:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+            transform: translateY(-1px);
+        }
+        .badge-info {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        .alert-custom {
+            border-radius: 10px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="main-container mx-auto" style="max-width: 900px;">
+            <!-- ヘッダー -->
+            <div class="header-section p-4 text-center">
+                <h1 class="mb-3">
+                    <i class="fas fa-search me-2"></i>
+                    郵便局コード番号検索
+                </h1>
+                <p class="mb-0">郵便番号、事業所個別郵便番号、デジタルアドレスを検索できます</p>
+            </div>
+
+            <div class="p-4">
+                <!-- トークン取得セクション -->
+                <div class="search-section p-4 mb-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-key me-2"></i>
+                        API認証
+                    </h5>
+                    <button id="getTokenBtn" class="btn btn-outline-primary">
+                        <i class="fas fa-unlock me-2"></i>
+                        トークンを取得
+                    </button>
+                    <div id="tokenStatus" class="mt-2"></div>
+                </div>
+
+                <!-- 検索セクション -->
+                <div class="search-section p-4 mb-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-search me-2"></i>
+                        検索条件
+                    </h5>
+                    <form id="searchForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="searchCode" class="form-label">検索コード *</label>
+                                <input type="text" class="form-control" id="searchCode" placeholder="郵便番号、デジタルアドレス等" required>
+                                <div class="form-text">例: 1000001, A7E-2FK2, JN4-LKS2<br>
+                                <small class="text-muted">※ ハイフンが含まれている場合は自動的に除去されます</small></div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="searchtype" class="form-label">検索タイプ</label>
+                                <select class="form-select" id="searchtype">
+                                    <option value="1">全て（郵便番号・事業所・デジタル）</option>
+                                    <option value="2">郵便番号・デジタルのみ</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="choikitype" class="form-label">町域表示</label>
+                                <select class="form-select" id="choikitype">
+                                    <option value="1">括弧なし</option>
+                                    <option value="2">括弧あり</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="page" class="form-label">ページ番号</label>
+                                <input type="number" class="form-control" id="page" min="1" value="1">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="limit" class="form-label">取得件数</label>
+                                <input type="number" class="form-control" id="limit" min="1" max="1000" value="100">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ec_uid" class="form-label">プロバイダーユーザーID</label>
+                                <input type="text" class="form-control" id="ec_uid" placeholder="オプション">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-search text-white">
+                            <i class="fas fa-search me-2"></i>
+                            検索実行
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ローディング -->
+                <div class="loading-spinner text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">検索中...</span>
+                    </div>
+                    <p class="mt-2">検索中...</p>
+                </div>
+
+                <!-- 結果表示 -->
+                <div id="results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- サンプルデータ表示モーダル -->
+    <div class="modal fade" id="sampleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">テスト用サンプルデータ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>利用可能なテストデータ：</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">サンプル1</h6>
+                                    <p class="card-text">
+                                        <strong>デジタルアドレス:</strong> A7E-2FK2<br>
+                                        <strong>住所:</strong> 東京都千代田区丸の内2丁目7-2
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="setSearchCode('A7E-2FK2')">使用</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">サンプル2</h6>
+                                    <p class="card-text">
+                                        <strong>デジタルアドレス:</strong> JN4-LKS2<br>
+                                        <strong>住所:</strong> 大阪府大阪市北区梅田3丁目2-2
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="setSearchCode('JN4-LKS2')">使用</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">サンプル3</h6>
+                                    <p class="card-text">
+                                        <strong>デジタルアドレス:</strong> QN6-GQX1<br>
+                                        <strong>住所:</strong> 福岡県福岡市博多区博多駅中央街9-1
+                                    </p>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="setSearchCode('QN6-GQX1')">使用</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6>郵便番号例：</h6>
+                    <p>東京都千代田区の郵便番号（例：1000001, 1000002など）でも検索可能です。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
